@@ -131,6 +131,28 @@ export default function HomeScreen() {
         maxToRenderPerBatch={PAGE_SIZE}
         windowSize={5}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <Link href="/generate-modal" asChild>
+            <Pressable
+              style={({ pressed }) => [
+                styles.ctaCard,
+                { backgroundColor: tint + '22', borderLeftColor: tint },
+                pressed && styles.ctaCardPressed,
+              ]}
+            >
+              <IconSymbol name="sparkles" size={28} color={tint} />
+              <View style={styles.ctaCardText}>
+                <ThemedText type="defaultSemiBold" style={styles.ctaCardTitle}>
+                  Tạo từ vựng theo chủ đề
+                </ThemedText>
+                <ThemedText style={styles.ctaCardSub}>
+                  Nhập chủ đề, nhận danh sách từ liên quan
+                </ThemedText>
+              </View>
+              <IconSymbol name="chevron.right" size={22} color={tint} />
+            </Pressable>
+          </Link>
+        }
         renderItem={({ item }) => (
           <WordItem
             word={item}
@@ -197,6 +219,34 @@ const styles = StyleSheet.create({
   listContent: {
     padding: 16,
     paddingBottom: 100,
+  },
+  ctaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 14,
+    borderLeftWidth: 4,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  ctaCardPressed: {
+    opacity: 0.9,
+  },
+  ctaCardText: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  ctaCardTitle: {
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  ctaCardSub: {
+    fontSize: 13,
+    opacity: 0.85,
   },
   wordCard: {
     padding: 14,

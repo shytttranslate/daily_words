@@ -24,6 +24,9 @@ const MAPPING = {
   'chart.bar.fill': 'bar-chart',
   'checkmark.circle.fill': 'check-circle',
   'xmark.circle.fill': 'cancel',
+  'sparkles': 'auto-awesome',
+  'photo': 'photo-library',
+  'camera': 'camera-alt',
 } as IconMapping;
 
 /**
