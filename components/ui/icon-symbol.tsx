@@ -23,10 +23,13 @@ const MAPPING = {
   'plus': 'add',
   'chart.bar.fill': 'bar-chart',
   'checkmark.circle.fill': 'check-circle',
+  'circle': 'radio-button-unchecked',
   'xmark.circle.fill': 'cancel',
   'sparkles': 'auto-awesome',
   'photo': 'photo-library',
   'camera': 'camera-alt',
+  'camera.viewfinder': 'image',
+  'pencil': 'edit',
 } as IconMapping;
 
 /**

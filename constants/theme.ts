@@ -5,24 +5,35 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Green as base color — works in both light and dark
+const tintColorLight = '#16a34a';
+const tintColorDark = '#4ade80'; // brighter green for dark mode contrast
 
 export const Colors = {
   light: {
     text: '#11181C',
+    textSecondary: '#6b7280',
     background: '#fff',
+    cardBackground: '#f3f4f6',
+    inputBackground: '#f9fafb',
+    border: '#e5e7eb',
+    placeholder: '#9ca3af',
     tint: tintColorLight,
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#f3f4f6',
+    textSecondary: '#9ca3af',
+    background: '#0f1114',
+    cardBackground: '#1a1e24',
+    inputBackground: '#15191f',
+    border: '#374151',
+    placeholder: '#6b7280',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#9ca3af',
+    tabIconDefault: '#9ca3af',
     tabIconSelected: tintColorDark,
   },
 };

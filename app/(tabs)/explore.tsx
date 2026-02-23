@@ -45,7 +45,7 @@ export default function QuizScreen() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [answers, setAnswers] = useState<{ wordId: string; correct: boolean }[]>([]);
   const tint = useThemeColor({}, 'tint');
-  const borderColor = useThemeColor({ light: '#e0e0e0', dark: '#333' }, 'background');
+  const borderColor = useThemeColor({}, 'border');
 
   const canStart = loaded && words.length >= 3;
 

@@ -19,7 +19,7 @@ function formatDate(iso: string) {
 
 export default function StatsScreen() {
   const { results, loaded, load } = useQuizStore();
-  const borderColor = useThemeColor({ light: '#e0e0e0', dark: '#333' }, 'background');
+  const borderColor = useThemeColor({}, 'border');
   const tint = useThemeColor({}, 'tint');
 
   useEffect(() => {

@@ -20,7 +20,7 @@ export default function RootLayout() {
         <WordsProvider>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Thêm từ mới' }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Thêm từ' }} />
             <Stack.Screen name="generate-modal" options={{ presentation: 'modal', title: 'Tạo từ theo chủ đề' }} />
           </Stack>
           <StatusBar style="auto" />

@@ -1,9 +1,11 @@
-import { useWords } from '@/context/words-context';
-import { useThemeColor } from '@/hooks/use-theme-color';
-import type { Word } from '@/types/word';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Link } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useWords } from "@/context/words-context";
+import { useThemeColor } from "@/hooks/use-theme-color";
+import type { CEFRLevel, Word } from "@/types/word";
+import { useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,38 +13,52 @@ import {
   StyleSheet,
   TextInput,
   View,
-} from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+} from "react-native";
 
 const PAGE_SIZE = 15;
 
-function WordItem({
-  word,
-  isKnown,
-  onToggleKnown,
-}: {
+const CEFR_LEVELS: CEFRLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
+const LEVEL_ORDER: Record<CEFRLevel, number> = { A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5 };
+
+type FilterLearned = "all" | "learned" | "unlearned";
+type FilterLevel = "all" | CEFRLevel;
+type SortOrder = "easy-first" | "hard-first";
+
+type WordItemProps = {
   word: Word;
   isKnown: boolean;
   onToggleKnown: (id: string) => void;
-}) {
-  const tint = useThemeColor({}, 'tint');
-  const iconColor = useThemeColor({}, 'icon');
+};
+
+function WordItemInner({ word, isKnown, onToggleKnown }: WordItemProps) {
+  const tint = useThemeColor({}, "tint");
+  const iconColor = useThemeColor({}, "icon");
+  const wordId = word.id;
+  const level = word.level ?? "A1";
+
+  const handlePress = useCallback(() => {
+    onToggleKnown(wordId);
+  }, [onToggleKnown, wordId]);
 
   return (
     <ThemedView style={styles.wordCard}>
       <View style={styles.wordHeader}>
-        <ThemedText type="defaultSemiBold" style={styles.wordEn}>
-          {word.en}
-        </ThemedText>
+        <View style={styles.wordTitleRow}>
+          <ThemedText type="defaultSemiBold" style={styles.wordEn}>
+            {word.en}
+          </ThemedText>
+          <View style={[styles.levelBadge, { backgroundColor: tint + "22" }]}>
+            <ThemedText style={[styles.levelBadgeText, { color: tint }]}>{level}</ThemedText>
+          </View>
+        </View>
         <Pressable
-          onPress={() => onToggleKnown(word.id)}
+          onPress={handlePress}
           hitSlop={12}
           style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
         >
           <IconSymbol
             size={24}
-            name={isKnown ? 'star.fill' : 'star'}
+            name={isKnown ? "checkmark.circle.fill" : "circle"}
             color={isKnown ? tint : iconColor}
           />
         </Pressable>
@@ -55,31 +71,127 @@ function WordItem({
   );
 }
 
+const WordItem = React.memo(WordItemInner, (prev, next) => {
+  return (
+    prev.word.id === next.word.id &&
+    prev.word.en === next.word.en &&
+    prev.word.vi === next.word.vi &&
+    prev.word.example === next.word.example &&
+    prev.word.level === next.word.level &&
+    prev.isKnown === next.isKnown &&
+    prev.onToggleKnown === next.onToggleKnown
+  );
+});
+
 export default function HomeScreen() {
   const { words, loaded, toggleKnown, isKnown } = useWords();
-  const [query, setQuery] = useState('');
-  const [filterUnknownOnly, setFilterUnknownOnly] = useState(false);
-  const tint = useThemeColor({}, 'tint');
-  const iconColor = useThemeColor({}, 'icon');
-  const borderColor = useThemeColor({ light: '#e0e0e0', dark: '#333' }, 'background');
-  const textColor = useThemeColor({}, 'text');
+  const [query, setQuery] = useState("");
+  const [filterLearned, setFilterLearned] = useState<FilterLearned>("all");
+  const [filterLevel, setFilterLevel] = useState<FilterLevel>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("easy-first");
+
+  const router = useRouter();
+  const tint = useThemeColor({}, "tint");
+  const iconColor = useThemeColor({}, "icon");
+  const borderColor = useThemeColor({}, "border");
+  const inputBg = useThemeColor({}, "inputBackground");
+  const placeholderColor = useThemeColor({}, "placeholder");
+  const textColor = useThemeColor({}, "text");
+  const cardBg = useThemeColor({}, "cardBackground");
+
+  const openAddModal = useCallback(() => {
+    router.push("/modal");
+  }, [router]);
 
   const filtered = useMemo(() => {
     let list = words;
-    if (filterUnknownOnly) {
-      list = list.filter((w) => !isKnown(w.id));
-    }
+    if (filterLearned === "learned") list = list.filter((w) => isKnown(w.id));
+    else if (filterLearned === "unlearned") list = list.filter((w) => !isKnown(w.id));
+    if (filterLevel !== "all") list = list.filter((w) => (w.level ?? "A1") === filterLevel);
     const q = query.trim().toLowerCase();
     if (q) {
       list = list.filter(
         (w) =>
           w.en.toLowerCase().includes(q) ||
           w.vi.toLowerCase().includes(q) ||
-          w.example.toLowerCase().includes(q)
+          (w.example && w.example.toLowerCase().includes(q)),
       );
     }
+    const levelOrder = (w: Word) => LEVEL_ORDER[(w.level ?? "A1") as CEFRLevel];
+    list = [...list].sort((a, b) => {
+      const diff = levelOrder(a) - levelOrder(b);
+      return sortOrder === "easy-first" ? diff : -diff;
+    });
     return list;
-  }, [words, query, filterUnknownOnly, isKnown]);
+  }, [words, query, filterLearned, filterLevel, sortOrder, isKnown]);
+
+  const handleToggleKnown = useCallback(
+    (id: string) => {
+      toggleKnown(id);
+    },
+    [toggleKnown],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: Word }) => (
+      <WordItem
+        word={item}
+        isKnown={isKnown(item.id)}
+        onToggleKnown={handleToggleKnown}
+      />
+    ),
+    [isKnown, handleToggleKnown],
+  );
+
+  const keyExtractor = useCallback((item: Word) => item.id, []);
+
+  const listHeaderComponent = useMemo(
+    () => (
+      <View style={styles.addSection}>
+        <Pressable
+          onPress={openAddModal}
+          style={({ pressed }) => [
+            styles.addButton,
+            {
+              backgroundColor: tint,
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
+        >
+          <IconSymbol name="plus" size={22} color="#fff" />
+          <ThemedText type="defaultSemiBold" style={styles.addButtonText}>
+            Thêm từ vựng (AI, ảnh hoặc thủ công)
+          </ThemedText>
+        </Pressable>
+      </View>
+    ),
+    [tint, openAddModal],
+  );
+
+  const listEmptyComponent = useMemo(
+    () => (
+      <ThemedView style={styles.empty}>
+        <ThemedText style={styles.emptyText}>
+          {words.length === 0
+            ? "Chưa có từ nào. Thêm từ mới để bắt đầu."
+            : "Không tìm thấy từ nào phù hợp."}
+        </ThemedText>
+        <Pressable
+          onPress={openAddModal}
+          style={({ pressed }) => [
+            styles.emptyButton,
+            { backgroundColor: tint, opacity: pressed ? 0.9 : 1 },
+          ]}
+        >
+          <IconSymbol name="plus" size={22} color="#fff" />
+          <ThemedText type="defaultSemiBold" style={styles.emptyButtonText}>
+            Thêm từ
+          </ThemedText>
+        </Pressable>
+      </ThemedView>
+    ),
+    [words.length, openAddModal, tint],
+  );
 
   if (!loaded) {
     return (
@@ -92,89 +204,156 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       <View style={[styles.header, { borderBottomColor: borderColor }]}>
-        <ThemedText type="title" style={styles.title}>
-          Từ vựng
-        </ThemedText>
+        <View style={styles.headerRow}>
+          <ThemedText type="title" style={styles.title}>
+            Từ vựng
+          </ThemedText>
+          <Pressable
+            onPress={openAddModal}
+            style={({ pressed }) => [
+              styles.headerAddBtn,
+              { backgroundColor: tint, opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <IconSymbol name="plus" size={20} color="#fff" />
+            <ThemedText type="defaultSemiBold" style={styles.headerAddBtnText}>
+              Thêm từ
+            </ThemedText>
+          </Pressable>
+        </View>
         <TextInput
-          style={[styles.searchInput, { backgroundColor: borderColor, color: textColor }]}
+          style={[
+            styles.searchInput,
+            {
+              backgroundColor: inputBg,
+              color: textColor,
+              borderColor,
+              borderWidth: 1,
+            },
+          ]}
           placeholder="Tìm từ (tiếng Anh hoặc tiếng Việt)..."
-          placeholderTextColor="#888"
+          placeholderTextColor={placeholderColor}
           value={query}
           onChangeText={setQuery}
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <Pressable
-          onPress={() => setFilterUnknownOnly((f) => !f)}
-          style={[
-            styles.filterBtn,
-            { backgroundColor: filterUnknownOnly ? tint : borderColor },
-          ]}
-        >
-          <IconSymbol
-            size={20}
-            name={filterUnknownOnly ? 'star.fill' : 'star'}
-            color={filterUnknownOnly ? '#fff' : iconColor}
-          />
-          <ThemedText
-            type="defaultSemiBold"
-            style={filterUnknownOnly ? styles.filterBtnTextActive : undefined}
+        <ThemedText style={styles.filterLabel}>Trạng thái</ThemedText>
+        <View style={styles.filterRow}>
+          {(["all", "unlearned", "learned"] as const).map((key) => (
+            <Pressable
+              key={key}
+              onPress={() => setFilterLearned(key)}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: filterLearned === key ? tint : cardBg,
+                  borderColor: filterLearned === key ? tint : borderColor,
+                },
+              ]}
+            >
+              <ThemedText
+                type="defaultSemiBold"
+                style={[styles.filterChipText, filterLearned === key && styles.filterChipTextActive]}
+                numberOfLines={1}
+              >
+                {key === "all" ? "Tất cả" : key === "learned" ? "Đã học" : "Chưa học"}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+        <ThemedText style={styles.filterLabel}>Level (CEFR)</ThemedText>
+        <View style={styles.filterRowWrap}>
+          <Pressable
+            onPress={() => setFilterLevel("all")}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: filterLevel === "all" ? tint : cardBg,
+                borderColor: filterLevel === "all" ? tint : borderColor,
+              },
+            ]}
           >
-            {filterUnknownOnly ? 'Chỉ từ chưa đánh dấu' : 'Tất cả'}
-          </ThemedText>
-        </Pressable>
+            <ThemedText
+              type="defaultSemiBold"
+              style={[styles.filterChipText, filterLevel === "all" && styles.filterChipTextActive]}
+            >
+              Tất cả
+            </ThemedText>
+          </Pressable>
+          {CEFR_LEVELS.map((level) => (
+            <Pressable
+              key={level}
+              onPress={() => setFilterLevel(level)}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: filterLevel === level ? tint : cardBg,
+                  borderColor: filterLevel === level ? tint : borderColor,
+                },
+              ]}
+            >
+              <ThemedText
+                type="defaultSemiBold"
+                style={[styles.filterChipText, filterLevel === level && styles.filterChipTextActive]}
+              >
+                {level}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+        <ThemedText style={styles.filterLabel}>Sắp xếp</ThemedText>
+        <View style={styles.filterRow}>
+          <Pressable
+            onPress={() => setSortOrder("easy-first")}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: sortOrder === "easy-first" ? tint : cardBg,
+                borderColor: sortOrder === "easy-first" ? tint : borderColor,
+              },
+            ]}
+          >
+            <ThemedText
+              type="defaultSemiBold"
+              style={[styles.filterChipText, sortOrder === "easy-first" && styles.filterChipTextActive]}
+            >
+              Dễ → Khó
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => setSortOrder("hard-first")}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: sortOrder === "hard-first" ? tint : cardBg,
+                borderColor: sortOrder === "hard-first" ? tint : borderColor,
+              },
+            ]}
+          >
+            <ThemedText
+              type="defaultSemiBold"
+              style={[styles.filterChipText, sortOrder === "hard-first" && styles.filterChipTextActive]}
+            >
+              Khó → Dễ
+            </ThemedText>
+          </Pressable>
+        </View>
       </View>
       <FlatList
         data={filtered}
-        keyExtractor={(item) => item.id}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         initialNumToRender={PAGE_SIZE}
         maxToRenderPerBatch={PAGE_SIZE}
-        windowSize={5}
+        windowSize={7}
+        removeClippedSubviews={true}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <Link href="/generate-modal" asChild>
-            <Pressable
-              style={({ pressed }) => [
-                styles.ctaCard,
-                { backgroundColor: tint + '22', borderLeftColor: tint },
-                pressed && styles.ctaCardPressed,
-              ]}
-            >
-              <IconSymbol name="sparkles" size={28} color={tint} />
-              <View style={styles.ctaCardText}>
-                <ThemedText type="defaultSemiBold" style={styles.ctaCardTitle}>
-                  Tạo từ vựng theo chủ đề
-                </ThemedText>
-                <ThemedText style={styles.ctaCardSub}>
-                  Nhập chủ đề, nhận danh sách từ liên quan
-                </ThemedText>
-              </View>
-              <IconSymbol name="chevron.right" size={22} color={tint} />
-            </Pressable>
-          </Link>
-        }
-        renderItem={({ item }) => (
-          <WordItem
-            word={item}
-            isKnown={isKnown(item.id)}
-            onToggleKnown={toggleKnown}
-          />
-        )}
-        ListEmptyComponent={
-          <ThemedView style={styles.empty}>
-            <ThemedText>
-              {words.length === 0
-                ? 'Chưa có từ nào. Thêm từ mới để bắt đầu.'
-                : 'Không tìm thấy từ nào phù hợp.'}
-            </ThemedText>
-          </ThemedView>
-        }
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={listHeaderComponent}
+        ListEmptyComponent={listEmptyComponent}
+        style={styles.list}
       />
-      <Link href="/modal" asChild>
-        <Pressable style={[styles.fab, { backgroundColor: tint }]}>
-          <IconSymbol name="plus" size={28} color="#fff" />
-        </Pressable>
-      </Link>
     </ThemedView>
   );
 }
@@ -185,8 +364,8 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     paddingHorizontal: 16,
@@ -194,8 +373,26 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  title: {
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
+  },
+  title: {
+    marginBottom: 0,
+  },
+  headerAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  headerAddBtnText: {
+    color: "#fff",
+    fontSize: 14,
   },
   searchInput: {
     height: 44,
@@ -204,49 +401,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 10,
   },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+  filterLabel: {
+    fontSize: 13,
+    opacity: 0.85,
+    marginBottom: 6,
   },
-  filterBtnTextActive: {
-    color: '#fff',
+  filterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterRowWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 10,
+  },
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 13,
+  },
+  filterChipTextActive: {
+    color: "#fff",
+  },
+  list: {
+    flex: 1,
+    zIndex: 0,
   },
   listContent: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
-  ctaCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 14,
-    borderLeftWidth: 4,
+  addSection: {
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
   },
-  ctaCardPressed: {
-    opacity: 0.9,
+  addButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
   },
-  ctaCardText: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  ctaCardTitle: {
+  addButtonText: {
+    color: "#fff",
     fontSize: 16,
-    marginBottom: 2,
-  },
-  ctaCardSub: {
-    fontSize: 13,
-    opacity: 0.85,
   },
   wordCard: {
     padding: 14,
@@ -254,13 +460,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   wordHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 4,
+  },
+  wordTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
   },
   wordEn: {
     fontSize: 18,
+  },
+  levelBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  levelBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   wordVi: {
     fontSize: 15,
@@ -269,25 +490,27 @@ const styles = StyleSheet.create({
   wordExample: {
     fontSize: 13,
     opacity: 0.85,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   empty: {
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 34,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  emptyText: {
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  emptyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  emptyButtonText: {
+    color: "#fff",
+    fontSize: 16,
   },
 });
