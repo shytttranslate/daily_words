@@ -6,7 +6,8 @@ import { useWords } from "@/context/words-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { generateWordsByTopic } from "@/services/generate-words";
 import { pickImageFromGallery, recognizeTextFromUri } from "@/services/ocr";
-import type { CEFRLevel, Word } from "@/types/word";
+import type { GeneratedWord } from "@/services/vocabup-api";
+import type { CEFRLevel } from "@/types/word";
 import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
@@ -25,27 +26,46 @@ const CEFR_LEVELS: CEFRLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 type AddMode = "choice" | "ai" | "ocr" | "manual";
 
 function ResultWordCard({
-  word,
+  item,
   onAdd,
   added,
   tint,
   borderColor,
+  textSecondary,
 }: {
-  word: Word;
+  item: GeneratedWord;
   onAdd: () => void;
   added: boolean;
   tint: string;
   borderColor: string;
+  textSecondary: string;
 }) {
   return (
     <View style={[styles.resultCard, { borderColor }]}>
       <View style={styles.resultCardContent}>
         <ThemedText type="defaultSemiBold" style={styles.resultEn}>
-          {word.en}
+          {item.word}
         </ThemedText>
-        <ThemedText style={styles.resultVi}>{word.vi}</ThemedText>
-        {word.example ? (
-          <ThemedText style={styles.resultEx}>VD: {word.example}</ThemedText>
+        <ThemedText style={[styles.resultIpa, { color: textSecondary }]}>
+          {item.ipa ?? "—"}
+        </ThemedText>
+        {item.pos || item.level ? (
+          <View style={styles.resultMeta}>
+            {item.pos ? (
+              <ThemedText style={[styles.resultPos, { color: textSecondary }]}>
+                {item.pos}
+              </ThemedText>
+            ) : null}
+            {item.level ? (
+              <ThemedText style={[styles.resultLevel, { color: tint }]}>
+                {item.level}
+              </ThemedText>
+            ) : null}
+          </View>
+        ) : null}
+        <ThemedText style={styles.resultVi}>{item.meaning_vi}</ThemedText>
+        {item.example ? (
+          <ThemedText style={styles.resultEx}>VD: {item.example}</ThemedText>
         ) : null}
       </View>
       <Pressable
@@ -83,7 +103,7 @@ export default function AddWordModalScreen() {
   // AI
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<Word[]>([]);
+  const [results, setResults] = useState<GeneratedWord[]>([]);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -169,17 +189,24 @@ export default function AddWordModalScreen() {
     try {
       const words = await generateWordsByTopic(trimmed);
       setResults(words);
-    } catch {
+    } catch (e) {
       setResults([]);
+      const msg = e instanceof Error ? e.message : "Không thể tạo từ vựng.";
+      Alert.alert("Lỗi", msg);
     } finally {
       setLoading(false);
     }
   }, [topic]);
 
   const handleAddOne = useCallback(
-    async (word: Word) => {
-      await addWord({ en: word.en, vi: word.vi, example: word.example ?? "" });
-      setAddedIds((prev) => new Set(prev).add(word.id));
+    async (item: GeneratedWord) => {
+      await addWord({
+        en: item.word,
+        vi: item.meaning_vi,
+        example: item.example ?? "",
+        level: item.level as CEFRLevel | undefined,
+      });
+      setAddedIds((prev) => new Set(prev).add(item.id));
     },
     [addWord],
   );
@@ -187,7 +214,12 @@ export default function AddWordModalScreen() {
   const handleAddAll = useCallback(async () => {
     for (const w of results) {
       if (addedIds.has(w.id)) continue;
-      await addWord({ en: w.en, vi: w.vi, example: w.example ?? "" });
+      await addWord({
+        en: w.word,
+        vi: w.meaning_vi,
+        example: w.example ?? "",
+        level: w.level as CEFRLevel | undefined,
+      });
       setAddedIds((prev) => new Set(prev).add(w.id));
     }
   }, [results, addedIds, addWord]);
@@ -485,45 +517,7 @@ export default function AddWordModalScreen() {
             numberOfLines={2}
             editable={!loading}
           />
-          <ThemedText style={[styles.chipLabel, { color: textSecondary }]}>
-            Lấy chủ đề từ ảnh
-          </ThemedText>
-          <View style={styles.scanRow}>
-            <Pressable
-              onPress={handleScanFromGallery}
-              disabled={ocrLoading || loading}
-              style={[styles.scanBtn, { borderColor, backgroundColor: cardBg }]}
-            >
-              {ocrLoading ? (
-                <ActivityIndicator size="small" color={tint} />
-              ) : (
-                <IconSymbol name="photo" size={22} color={tint} />
-              )}
-              <ThemedText
-                type="defaultSemiBold"
-                style={[styles.scanBtnText, { color: textColor }]}
-              >
-                Chọn ảnh
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={handleScanFromCamera}
-              disabled={ocrLoading || loading}
-              style={[styles.scanBtn, { borderColor, backgroundColor: cardBg }]}
-            >
-              {ocrLoading ? (
-                <ActivityIndicator size="small" color={tint} />
-              ) : (
-                <IconSymbol name="camera" size={22} color={tint} />
-              )}
-              <ThemedText
-                type="defaultSemiBold"
-                style={[styles.scanBtnText, { color: textColor }]}
-              >
-                Chụp ảnh
-              </ThemedText>
-            </Pressable>
-          </View>
+
           <ThemedText style={[styles.chipLabel, { color: textSecondary }]}>
             Gợi ý nhanh
           </ThemedText>
@@ -590,11 +584,12 @@ export default function AddWordModalScreen() {
               {results.map((item) => (
                 <ResultWordCard
                   key={item.id}
-                  word={item}
+                  item={item}
                   onAdd={() => handleAddOne(item)}
                   added={addedIds.has(item.id)}
                   tint={tint}
                   borderColor={borderColor}
+                  textSecondary={textSecondary}
                 />
               ))}
             </View>
@@ -874,6 +869,25 @@ const styles = StyleSheet.create({
   resultEn: {
     fontSize: 16,
     marginBottom: 2,
+  },
+  resultIpa: {
+    fontSize: 13,
+    fontStyle: "italic",
+    marginBottom: 4,
+  },
+  resultMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+  },
+  resultPos: {
+    fontSize: 12,
+    textTransform: "lowercase",
+  },
+  resultLevel: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   resultVi: {
     fontSize: 14,

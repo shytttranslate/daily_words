@@ -10,7 +10,16 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. **Android build:** Cần cài JDK 17. Nếu gặp lỗi "Unable to locate a Java Runtime":
+
+   ```bash
+   brew install openjdk@17
+   sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk
+   ```
+
+   Hoặc tải [Eclipse Temurin JDK 17](https://adoptium.net/) và đặt `JAVA_HOME` trỏ tới thư mục cài đặt.
+
+3. Start the app
 
    ```bash
    npx expo start
