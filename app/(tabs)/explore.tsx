@@ -1,4 +1,6 @@
 import { useWords } from '@/context/words-context';
+import { useRouteLoading } from '@/context/route-loading-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuizStore } from '@/store/quiz-store';
 import type { Word } from '@/types/word';
 import { ThemedText } from '@/components/themed-text';
@@ -38,8 +40,15 @@ function buildOptions(correct: Word, allWords: Word[]): { label: string; correct
 
 export default function QuizScreen() {
   const { words, loaded } = useWords();
+  const { setRouteLoading } = useRouteLoading();
   const { addResult } = useQuizStore();
   const [started, setStarted] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setRouteLoading(false);
+    }, [setRouteLoading])
+  );
   const [quizWords, setQuizWords] = useState<Word[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);

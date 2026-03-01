@@ -4,9 +4,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 
-import { RouteLoadingFallback } from '@/components/route-loading-fallback';
+import { RouteLoadingProvider } from '@/context/route-loading-context';
 import { WordsProvider, useWords } from '@/context/words-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -35,15 +35,15 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <WordsProvider>
-          <HideSplashWhenReady />
-          <Suspense fallback={<RouteLoadingFallback />}>
+          <RouteLoadingProvider>
+            <HideSplashWhenReady />
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Thêm từ' }} />
               <Stack.Screen name="generate-modal" options={{ presentation: 'modal', title: 'Tạo từ theo chủ đề' }} />
             </Stack>
-          </Suspense>
-          <StatusBar style="auto" />
+            <StatusBar style="auto" />
+          </RouteLoadingProvider>
         </WordsProvider>
       </ThemeProvider>
     </GestureHandlerRootView>

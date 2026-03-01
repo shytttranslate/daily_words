@@ -2,6 +2,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useWords } from "@/context/words-context";
+import { useRouteLoading } from "@/context/route-loading-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { speakWord } from "@/hooks/use-speak-word";
 import type { CEFRLevel, Word } from "@/types/word";
@@ -105,6 +106,7 @@ const WordItem = React.memo(WordItemInner, (prev, next) => {
 
 export default function HomeScreen() {
   const { words, loaded, toggleKnown, isKnown } = useWords();
+  const { setRouteLoading } = useRouteLoading();
   const [query, setQuery] = useState("");
   const [filterLearned, setFilterLearned] = useState<FilterLearned>("all");
   const [filterLevel, setFilterLevel] = useState<FilterLevel>("all");
@@ -120,8 +122,9 @@ export default function HomeScreen() {
   const cardBg = useThemeColor({}, "cardBackground");
 
   const openAddModal = useCallback(() => {
+    setRouteLoading(true);
     router.push("/modal");
-  }, [router]);
+  }, [router, setRouteLoading]);
 
   const filtered = useMemo(() => {
     let list = words;

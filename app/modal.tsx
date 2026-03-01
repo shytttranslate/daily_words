@@ -3,6 +3,8 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useWords } from "@/context/words-context";
+import { useRouteLoading } from "@/context/route-loading-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { speakWord } from "@/hooks/use-speak-word";
 import { generateWordsByTopic } from "@/services/generate-words";
@@ -112,8 +114,15 @@ function ResultWordCard({
 
 export default function AddWordModalScreen() {
   const { addWord } = useWords();
+  const { setRouteLoading } = useRouteLoading();
   const router = useRouter();
   const [mode, setMode] = useState<AddMode>("choice");
+
+  useFocusEffect(
+    useCallback(() => {
+      setRouteLoading(false);
+    }, [setRouteLoading])
+  );
 
   // Manual form
   const [en, setEn] = useState("");

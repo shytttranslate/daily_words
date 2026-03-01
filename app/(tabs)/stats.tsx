@@ -1,9 +1,11 @@
 import { useQuizStore } from '@/store/quiz-store';
+import { useRouteLoading } from '@/context/route-loading-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 
 function formatDate(iso: string) {
@@ -19,8 +21,15 @@ function formatDate(iso: string) {
 
 export default function StatsScreen() {
   const { results, loaded, load } = useQuizStore();
+  const { setRouteLoading } = useRouteLoading();
   const borderColor = useThemeColor({}, 'border');
   const tint = useThemeColor({}, 'tint');
+
+  useFocusEffect(
+    useCallback(() => {
+      setRouteLoading(false);
+    }, [setRouteLoading])
+  );
 
   useEffect(() => {
     load();
