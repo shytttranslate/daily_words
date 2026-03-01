@@ -26,9 +26,8 @@ import {
 } from "react-native";
 
 const SUGGESTIONS = ["Công nghệ", "Du lịch", "Kinh doanh"];
-const CEFR_LEVELS: CEFRLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
-type AddMode = "choice" | "ai" | "ocr" | "manual";
+type AddMode = "choice" | "ai" | "ocr" | "manualSearch";
 
 /** Chuyển WordDetail (từ API dictionary) sang GeneratedWord để dùng ResultWordCard và addWord */
 function wordDetailToGeneratedWord(detail: WordDetail): GeneratedWord {
@@ -168,13 +167,6 @@ export default function AddWordModalScreen() {
     }, [setRouteLoading])
   );
 
-  // Manual form
-  const [en, setEn] = useState("");
-  const [vi, setVi] = useState("");
-  const [example, setExample] = useState("");
-  const [manualLevel, setManualLevel] = useState<CEFRLevel>("A1");
-  const [saving, setSaving] = useState(false);
-
   // AI
   const [topic, setTopic] = useState("");
   const [loading, setLoading] = useState(false);
@@ -192,6 +184,12 @@ export default function AddWordModalScreen() {
   const [addedScannedIds, setAddedScannedIds] = useState<Set<string>>(new Set());
   const [loadingScanWord, setLoadingScanWord] = useState<string | null>(null);
 
+  // Manual search (tra từ thủ công)
+  const [manualSearchInput, setManualSearchInput] = useState("");
+  const [manualSearchLoading, setManualSearchLoading] = useState(false);
+  const [manualSearchResults, setManualSearchResults] = useState<GeneratedWord[]>([]);
+  const [addedManualSearchIds, setAddedManualSearchIds] = useState<Set<string>>(new Set());
+
   const tint = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
   const textColor = useThemeColor({}, "text");
@@ -206,6 +204,8 @@ export default function AddWordModalScreen() {
       setOcrText("");
       setScannedWords([]);
       setAddedScannedIds(new Set());
+      setManualSearchResults([]);
+      setAddedManualSearchIds(new Set());
     } else {
       router.back();
     }
@@ -317,32 +317,6 @@ export default function AddWordModalScreen() {
 
   const allAdded = results.length > 0 && addedIds.size === results.length;
 
-  const handleSaveManual = async () => {
-    const wordEn = en.trim();
-    const wordVi = vi.trim();
-    if (!wordEn || !wordVi) {
-      Alert.alert(
-        "Thiếu thông tin",
-        "Vui lòng nhập từ tiếng Anh và nghĩa tiếng Việt.",
-      );
-      return;
-    }
-    setSaving(true);
-    try {
-      await addWord({
-        en: wordEn,
-        vi: wordVi,
-        example: example.trim(),
-        level: manualLevel,
-      });
-      router.back();
-    } catch {
-      Alert.alert("Lỗi", "Không thể lưu từ. Vui lòng thử lại.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const useOcrAsTopic = useCallback(() => {
     setTopic(ocrText);
     setMode("ai");
@@ -400,6 +374,43 @@ export default function AddWordModalScreen() {
         level: (item.level as CEFRLevel) ?? undefined,
       });
       setAddedScannedIds((prev) => new Set(prev).add(item.id));
+    },
+    [addWord]
+  );
+
+  const handleManualSearch = useCallback(async () => {
+    const word = manualSearchInput.trim().toLowerCase();
+    if (!word) return;
+    setManualSearchLoading(true);
+    try {
+      const detail = await getWordDetail(word);
+      if (detail) {
+        const generated = wordDetailToGeneratedWord(detail);
+        setManualSearchResults((prev) => {
+          const exists = prev.some((w) => w.word.toLowerCase() === word);
+          if (exists) return prev;
+          return [...prev, generated];
+        });
+        setManualSearchInput("");
+      } else {
+        Alert.alert("Không tìm thấy", `Không có định nghĩa cho từ "${word}".`);
+      }
+    } catch {
+      Alert.alert("Lỗi", "Không thể tra từ. Kiểm tra mạng và thử lại.");
+    } finally {
+      setManualSearchLoading(false);
+    }
+  }, [manualSearchInput]);
+
+  const handleAddOneManualSearch = useCallback(
+    async (item: GeneratedWord) => {
+      await addWord({
+        en: item.word,
+        vi: item.meaning_vi,
+        example: item.example ?? "",
+        level: (item.level as CEFRLevel) ?? undefined,
+      });
+      setAddedManualSearchIds((prev) => new Set(prev).add(item.id));
     },
     [addWord]
   );
@@ -484,7 +495,12 @@ export default function AddWordModalScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => setMode("manual")}
+            onPress={() => {
+              setManualSearchInput("");
+              setManualSearchResults([]);
+              setAddedManualSearchIds(new Set());
+              setMode("manualSearch");
+            }}
             style={({ pressed }) => [
               styles.optionCard,
               {
@@ -497,14 +513,14 @@ export default function AddWordModalScreen() {
             <View
               style={[styles.optionIconWrap, { backgroundColor: tint + "22" }]}
             >
-              <IconSymbol name="pencil" size={28} color={tint} />
+              <IconSymbol name="magnifyingglass" size={28} color={tint} />
             </View>
             <View style={styles.optionTextWrap}>
               <ThemedText type="defaultSemiBold" style={styles.optionTitle}>
                 Thêm từ vựng
               </ThemedText>
               <ThemedText style={[styles.optionDesc, { color: textSecondary }]}>
-                Nhập từ tiếng Anh, nghĩa tiếng Việt và ví dụ (nếu có)
+                Gõ từ cần tra → tìm kiếm → xem chi tiết → lưu vào sổ
               </ThemedText>
             </View>
             <IconSymbol name="chevron.right" size={20} color={textSecondary} />
@@ -832,99 +848,103 @@ export default function AddWordModalScreen() {
     );
   }
 
-  // —— Manual form ——
-  return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
-          <IconSymbol name="chevron.left" size={24} color={tint} />
-        </Pressable>
-        <ThemedText type="title" style={styles.title}>
-          Thêm từ thủ công
-        </ThemedText>
-        <View style={styles.headerSpacer} />
-      </View>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <TextInput
-          style={[
-            styles.input,
-            { borderColor, color: textColor, backgroundColor: inputBg },
-          ]}
-          placeholder="Từ tiếng Anh"
-          placeholderTextColor={placeholderColor}
-          value={en}
-          onChangeText={setEn}
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={[
-            styles.input,
-            { borderColor, color: textColor, backgroundColor: inputBg },
-          ]}
-          placeholder="Nghĩa tiếng Việt"
-          placeholderTextColor={placeholderColor}
-          value={vi}
-          onChangeText={setVi}
-        />
-        <TextInput
-          style={[
-            styles.input,
-            styles.inputMulti,
-            { borderColor, color: textColor, backgroundColor: inputBg },
-          ]}
-          placeholder="Ví dụ (tùy chọn)"
-          placeholderTextColor={placeholderColor}
-          value={example}
-          onChangeText={setExample}
-          multiline
-          numberOfLines={3}
-        />
-        <ThemedText style={[styles.chipLabel, { color: textSecondary }]}>
-          Level (CEFR)
-        </ThemedText>
-        <View style={styles.chips}>
-          {CEFR_LEVELS.map((level) => (
-            <Pressable
-              key={level}
-              onPress={() => setManualLevel(level)}
-              style={[
-                styles.chip,
-                {
-                  borderColor,
-                  backgroundColor: manualLevel === level ? tint + "30" : cardBg,
-                },
-              ]}
-            >
-              <ThemedText
-                type="defaultSemiBold"
-                style={{ color: manualLevel === level ? tint : textColor }}
-              >
-                {level}
-              </ThemedText>
-            </Pressable>
-          ))}
+  // —— Manual search: nhập từ → tra → hiển thị → xem detail → lưu ——
+  if (mode === "manualSearch") {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={goBack} hitSlop={12} style={styles.backBtn}>
+            <IconSymbol name="chevron.left" size={24} color={tint} />
+          </Pressable>
+          <ThemedText type="title" style={styles.title}>
+            Thêm từ vựng
+          </ThemedText>
+          <View style={styles.headerSpacer} />
         </View>
-        <Pressable
-          onPress={handleSaveManual}
-          disabled={saving}
-          style={[styles.primaryBtn, { backgroundColor: tint }]}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <ThemedText type="defaultSemiBold" style={styles.primaryBtnText}>
-              Lưu từ
+          <ThemedText style={[styles.chipLabel, { color: textSecondary }]}>
+            Nhập từ cần tra
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.topicInput,
+              styles.manualSearchInput,
+              { borderColor, color: textColor, backgroundColor: inputBg },
+            ]}
+            placeholder="Ví dụ: hello, technology..."
+            placeholderTextColor={placeholderColor}
+            value={manualSearchInput}
+            onChangeText={setManualSearchInput}
+            autoCapitalize="none"
+            editable={!manualSearchLoading}
+            onSubmitEditing={handleManualSearch}
+          />
+          <Pressable
+            onPress={handleManualSearch}
+            disabled={manualSearchLoading || !manualSearchInput.trim()}
+            style={[
+              styles.primaryBtn,
+              {
+                backgroundColor:
+                  manualSearchLoading || !manualSearchInput.trim()
+                    ? borderColor
+                    : tint,
+              },
+            ]}
+          >
+            {manualSearchLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <IconSymbol name="magnifyingglass" size={20} color="#fff" />
+            )}
+            <ThemedText
+              type="defaultSemiBold"
+              style={styles.primaryBtnText}
+            >
+              Tra từ
             </ThemedText>
+          </Pressable>
+
+          {manualSearchResults.length > 0 && (
+            <View style={styles.resultSection}>
+              <View style={styles.resultHeader}>
+                <ThemedText type="subtitle">
+                  Kết quả ({manualSearchResults.length})
+                </ThemedText>
+              </View>
+              {manualSearchResults.map((item) => (
+                <ResultWordCard
+                  key={item.id}
+                  item={item}
+                  onAdd={() => handleAddOneManualSearch(item)}
+                  onPressDetail={() => {
+                    router.push({
+                      pathname: "/word-detail",
+                      params: {
+                        payload: JSON.stringify(generatedWordToDetail(item)),
+                      },
+                    });
+                  }}
+                  added={addedManualSearchIds.has(item.id)}
+                  tint={tint}
+                  borderColor={borderColor}
+                  textSecondary={textSecondary}
+                />
+              ))}
+            </View>
           )}
-        </Pressable>
-      </ScrollView>
-    </ThemedView>
-  );
+        </ScrollView>
+      </ThemedView>
+    );
+  }
+
+  // —— Manual form removed: chỉ dùng flow "Thêm từ vựng" (tra từ) ——
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -1027,6 +1047,9 @@ const styles = StyleSheet.create({
     minHeight: 72,
     textAlignVertical: "top",
     marginBottom: 14,
+  },
+  manualSearchInput: {
+    minHeight: 48,
   },
   scanRow: {
     flexDirection: "row",
