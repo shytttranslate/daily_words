@@ -11,6 +11,7 @@ import { generateWordsByTopic } from "@/services/generate-words";
 import { getSuggestions } from "@/services/vocabup-api";
 import { pickImageFromGallery, recognizeTextFromUri } from "@/services/ocr";
 import type { GeneratedWord } from "@/services/vocabup-api";
+import type { WordDetail } from "@/types/word-detail";
 import type { CEFRLevel } from "@/types/word";
 import { useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -29,9 +30,32 @@ const CEFR_LEVELS: CEFRLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 type AddMode = "choice" | "ai" | "ocr" | "manual";
 
+/** Chuyển GeneratedWord (màn generate) sang WordDetail cho màn word-detail */
+function generatedWordToDetail(item: GeneratedWord): WordDetail {
+  return {
+    word: item.word,
+    definitions: [
+      {
+        definition: item.meaning_vi,
+        examples: item.example ? [item.example] : [],
+        level: item.level ?? "A1",
+        pos: item.pos ?? "",
+      },
+    ],
+    phonetics: {
+      uk_pronun: item.ipa ?? "",
+      uk_sound: "",
+      us_pronun: item.ipa ?? "",
+      us_sound: "",
+      grammar: item.ipa ?? "",
+    },
+  };
+}
+
 function ResultWordCard({
   item,
-  onAdd, 
+  onAdd, 
+  onPressDetail,
   added,
   tint,
   borderColor,
@@ -39,6 +63,7 @@ function ResultWordCard({
 }: {
   item: GeneratedWord;
   onAdd: () => void;
+  onPressDetail: () => void;
   added: boolean;
   tint: string;
   borderColor: string;
@@ -46,7 +71,11 @@ function ResultWordCard({
 }) {
   return (
     <View style={[styles.resultCard, { borderColor }]}>
-      <View style={styles.resultCardContent}>
+      <Pressable
+        onPress={onPressDetail}
+        style={({ pressed }) => [{ flex: 1, opacity: pressed ? 0.85 : 1 }]}
+      >
+        <View style={styles.resultCardContent}>
         <View style={styles.resultWordRow}>
           <ThemedText type="defaultSemiBold" style={styles.resultEn}>
             {item.word}
@@ -92,6 +121,7 @@ function ResultWordCard({
           <ThemedText style={styles.resultEx}>VD: {item.example}</ThemedText>
         ) : null}
       </View>
+      </Pressable>
       <Pressable
         onPress={onAdd}
         disabled={added}
@@ -631,6 +661,12 @@ export default function AddWordModalScreen() {
                   key={item.id}
                   item={item}
                   onAdd={() => handleAddOne(item)}
+                  onPressDetail={() => {
+                    router.push({
+                      pathname: "/word-detail",
+                      params: { payload: JSON.stringify(generatedWordToDetail(item)) },
+                    });
+                  }}
                   added={addedIds.has(item.id)}
                   tint={tint}
                   borderColor={borderColor}

@@ -1,17 +1,21 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useEffect } from 'react';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "react-native-reanimated";
 
-import { RouteLoadingProvider } from '@/context/route-loading-context';
-import { WordsProvider, useWords } from '@/context/words-context';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { RouteLoadingProvider } from "@/context/route-loading-context";
+import { WordsProvider, useWords } from "@/context/words-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 function HideSplashWhenReady() {
@@ -33,16 +37,26 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <WordsProvider>
           <RouteLoadingProvider>
             <HideSplashWhenReady />
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Thêm từ' }} />
-              <Stack.Screen name="generate-modal" options={{ presentation: 'modal', title: 'Tạo từ theo chủ đề' }} />
+              <Stack.Screen
+                name="modal"
+                options={{ presentation: "modal", title: "Thêm từ" }}
+              />
+              <Stack.Screen
+                name="generate-modal"
+                options={{ presentation: "modal", title: "Tạo từ theo chủ đề" }}
+              />
+              <Stack.Screen
+                name="word-detail"
+                options={{ title: "Chi tiết từ" }}
+              />
+              <StatusBar style="auto" />
             </Stack>
-            <StatusBar style="auto" />
           </RouteLoadingProvider>
         </WordsProvider>
       </ThemeProvider>
