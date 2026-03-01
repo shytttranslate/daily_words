@@ -2,10 +2,11 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { speakWord } from "@/hooks/use-speak-word";
+import { getSoundUri, playSoundFromUri } from "@/hooks/use-play-sound-url";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WordDetail } from "@/types/word-detail";
 import { useLocalSearchParams } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   Pressable,
   ScrollView,
@@ -54,6 +55,18 @@ export default function WordDetailScreen() {
   }
 
   const { word, definitions, phonetics } = detail;
+
+  const handlePlayPhonetic = useCallback(
+    (soundPath: string | undefined, fallbackLocale: "en-GB" | "en-US") => {
+      const uri = getSoundUri(soundPath);
+      if (uri) {
+        playSoundFromUri(uri);
+      } else {
+        speakWord(word, fallbackLocale);
+      }
+    },
+    [word],
+  );
 
   return (
     <ThemedView style={styles.container}>
@@ -131,9 +144,27 @@ export default function WordDetailScreen() {
               >
                 UK
               </ThemedText>
-              <ThemedText style={styles.phoneticValue}>
-                {phonetics.uk_pronun || "—"}
-              </ThemedText>
+              <View style={styles.phoneticValueRow}>
+                <ThemedText style={styles.phoneticValue}>
+                  {phonetics.uk_pronun || "—"}
+                </ThemedText>
+                <Pressable
+                  onPress={() =>
+                    handlePlayPhonetic(phonetics.uk_sound, "en-GB")
+                  }
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.phoneticPlayBtn,
+                    { backgroundColor: tint + "18", opacity: pressed ? 0.8 : 1 },
+                  ]}
+                >
+                  <IconSymbol
+                    name="speaker.wave.2"
+                    size={20}
+                    color={tint}
+                  />
+                </Pressable>
+              </View>
             </View>
             <View
               style={[styles.phoneticDivider, { backgroundColor: borderColor }]}
@@ -144,9 +175,27 @@ export default function WordDetailScreen() {
               >
                 US
               </ThemedText>
-              <ThemedText style={styles.phoneticValue}>
-                {phonetics.us_pronun || "—"}
-              </ThemedText>
+              <View style={styles.phoneticValueRow}>
+                <ThemedText style={styles.phoneticValue}>
+                  {phonetics.us_pronun || "—"}
+                </ThemedText>
+                <Pressable
+                  onPress={() =>
+                    handlePlayPhonetic(phonetics.us_sound, "en-US")
+                  }
+                  hitSlop={8}
+                  style={({ pressed }) => [
+                    styles.phoneticPlayBtn,
+                    { backgroundColor: tint + "18", opacity: pressed ? 0.8 : 1 },
+                  ]}
+                >
+                  <IconSymbol
+                    name="speaker.wave.2"
+                    size={20}
+                    color={tint}
+                  />
+                </Pressable>
+              </View>
             </View>
           </View>
           {phonetics.grammar &&
@@ -292,18 +341,31 @@ const styles = StyleSheet.create({
   phoneticItem: {
     flex: 1,
   },
-  phoneticLabel: {
-    fontSize: 12,
-    marginBottom: 4,
+  phoneticValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   phoneticValue: {
     fontSize: 16,
     fontStyle: "italic",
+    flex: 1,
+  },
+  phoneticPlayBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   phoneticDivider: {
     width: 1,
     height: 32,
     marginHorizontal: 12,
+  },
+  phoneticLabel: {
+    fontSize: 12,
+    marginBottom: 4,
   },
   grammarRow: {
     marginTop: 16,
