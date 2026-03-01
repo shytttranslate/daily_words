@@ -31,6 +31,7 @@ const MAPPING = {
   'camera.viewfinder': 'image',
   'pencil': 'edit',
   'speaker.wave.2': 'volume-up',
+  'magnifyingglass': 'search',
 } as IconMapping;
 
 /**

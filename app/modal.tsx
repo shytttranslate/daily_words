@@ -8,7 +8,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useThemeColor } from "@/hooks/use-theme-color";
 import { speakWord } from "@/hooks/use-speak-word";
 import { generateWordsByTopic } from "@/services/generate-words";
-import { getSuggestions } from "@/services/vocabup-api";
+import { getWordDetail, getSuggestions } from "@/services/vocabup-api";
 import { pickImageFromGallery, recognizeTextFromUri } from "@/services/ocr";
 import type { GeneratedWord } from "@/services/vocabup-api";
 import type { WordDetail } from "@/types/word-detail";
@@ -29,6 +29,20 @@ const SUGGESTIONS = ["Công nghệ", "Du lịch", "Kinh doanh"];
 const CEFR_LEVELS: CEFRLevel[] = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
 type AddMode = "choice" | "ai" | "ocr" | "manual";
+
+/** Chuyển WordDetail (từ API dictionary) sang GeneratedWord để dùng ResultWordCard và addWord */
+function wordDetailToGeneratedWord(detail: WordDetail): GeneratedWord {
+  const d = detail.definitions[0];
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    word: detail.word,
+    meaning_vi: d?.definition ?? "",
+    example: d?.examples?.[0],
+    level: d?.level || undefined,
+    pos: d?.pos || undefined,
+    ipa: detail.phonetics?.us_pronun || detail.phonetics?.uk_pronun || undefined,
+  };
+}
 
 /** Chuyển GeneratedWord (màn generate) sang WordDetail cho màn word-detail */
 function generatedWordToDetail(item: GeneratedWord): WordDetail {
@@ -174,6 +188,9 @@ export default function AddWordModalScreen() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [ocrText, setOcrText] = useState("");
+  const [scannedWords, setScannedWords] = useState<GeneratedWord[]>([]);
+  const [addedScannedIds, setAddedScannedIds] = useState<Set<string>>(new Set());
+  const [loadingScanWord, setLoadingScanWord] = useState<string | null>(null);
 
   const tint = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
@@ -187,6 +204,8 @@ export default function AddWordModalScreen() {
     if (mode !== "choice") {
       setMode("choice");
       setOcrText("");
+      setScannedWords([]);
+      setAddedScannedIds(new Set());
     } else {
       router.back();
     }
@@ -329,6 +348,62 @@ export default function AddWordModalScreen() {
     setMode("ai");
   }, [ocrText]);
 
+  const ocrWords = React.useMemo(() => {
+    const raw = ocrText.replace(/\s+/g, " ").trim();
+    if (!raw) return [];
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const token of raw.split(/\s+/)) {
+      const word = token.replace(/[^a-zA-Z']/g, "");
+      if (word.length >= 2) {
+        const key = word.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          list.push(word);
+        }
+      }
+    }
+    return list;
+  }, [ocrText]);
+
+  const handleAddScanWord = useCallback(
+    async (word: string) => {
+      if (loadingScanWord) return;
+      setLoadingScanWord(word);
+      try {
+        const detail = await getWordDetail(word);
+        if (detail) {
+          const generated = wordDetailToGeneratedWord(detail);
+          setScannedWords((prev) => {
+            const exists = prev.some((w) => w.word.toLowerCase() === word.toLowerCase());
+            if (exists) return prev;
+            return [...prev, generated];
+          });
+        } else {
+          Alert.alert("Không tìm thấy", `Không có định nghĩa cho từ "${word}".`);
+        }
+      } catch {
+        Alert.alert("Lỗi", "Không thể tra từ. Kiểm tra mạng và thử lại.");
+      } finally {
+        setLoadingScanWord(null);
+      }
+    },
+    [loadingScanWord]
+  );
+
+  const handleAddOneScanned = useCallback(
+    async (item: GeneratedWord) => {
+      await addWord({
+        en: item.word,
+        vi: item.meaning_vi,
+        example: item.example ?? "",
+        level: (item.level as CEFRLevel) ?? undefined,
+      });
+      setAddedScannedIds((prev) => new Set(prev).add(item.id));
+    },
+    [addWord]
+  );
+
   // —— Choice: 3 options ——
   if (mode === "choice") {
     return (
@@ -460,7 +535,7 @@ export default function AddWordModalScreen() {
           {!ocrText ? (
             <>
               <ThemedText style={[styles.ocrHint, { color: textSecondary }]}>
-                Chọn ảnh từ thư viện hoặc chụp ảnh mới để nhận diện chữ.
+                Chọn ảnh từ thư viện hoặc chụp ảnh mới để nhận diện chữ. Sau khi có nội dung, bạn có thể "Dùng làm chủ đề AI" hoặc "Scan từ" (badge +) để thêm từng từ.
               </ThemedText>
               <View style={styles.scanRow}>
                 <Pressable
@@ -496,12 +571,17 @@ export default function AddWordModalScreen() {
                   ) : (
                     <IconSymbol name="camera" size={24} color={tint} />
                   )}
-                  <ThemedText
-                    type="defaultSemiBold"
-                    style={[styles.scanBtnText, { color: textColor }]}
-                  >
-                    Chụp ảnh
-                  </ThemedText>
+                  <View style={styles.scanBtnLabelWrap}>
+                    <ThemedText
+                      type="defaultSemiBold"
+                      style={[styles.scanBtnText, { color: textColor }]}
+                    >
+                      Chụp ảnh
+                    </ThemedText>
+                    <ThemedText style={[styles.scanBtnSubtext, { color: textSecondary }]}>
+                      Sau đó scan từ như chọn ảnh
+                    </ThemedText>
+                  </View>
                 </Pressable>
               </View>
             </>
@@ -535,13 +615,74 @@ export default function AddWordModalScreen() {
                 </ThemedText>
               </Pressable>
               <Pressable
-                onPress={() => setOcrText("")}
+                onPress={() => {
+                  setOcrText("");
+                  setScannedWords([]);
+                  setAddedScannedIds(new Set());
+                }}
                 style={[styles.secondaryBtn, { borderColor }]}
               >
                 <ThemedText type="defaultSemiBold" style={{ color: textColor }}>
                   Quét ảnh khác
                 </ThemedText>
               </Pressable>
+              {ocrWords.length > 0 && (
+                <>
+                  <ThemedText style={[styles.chipLabel, { color: textSecondary }]}>
+                    Scan từ — nhấn + để tra và thêm
+                  </ThemedText>
+                  <View style={styles.scanBadgeWrap}>
+                    {ocrWords.map((w) => {
+                      const isLoading = loadingScanWord === w;
+                      return (
+                        <View
+                          key={w}
+                          style={[styles.scanBadge, { borderColor, backgroundColor: cardBg }]}
+                        >
+                          <ThemedText type="defaultSemiBold" style={styles.scanBadgeText}>
+                            {w}
+                          </ThemedText>
+                          <Pressable
+                            onPress={() => handleAddScanWord(w)}
+                            disabled={isLoading}
+                            style={[styles.scanBadgeAdd, { backgroundColor: tint }]}
+                          >
+                            {isLoading ? (
+                              <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                              <IconSymbol name="magnifyingglass" size={18} color="#fff" />
+                            )}
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  {scannedWords.length > 0 && (
+                    <View style={styles.resultSection}>
+                      <View style={styles.resultHeader}>
+                        <ThemedText type="subtitle">Đã tra ({scannedWords.length})</ThemedText>
+                      </View>
+                      {scannedWords.map((item) => (
+                        <ResultWordCard
+                          key={item.id}
+                          item={item}
+                          onAdd={() => handleAddOneScanned(item)}
+                          onPressDetail={() => {
+                            router.push({
+                              pathname: "/word-detail",
+                              params: { payload: JSON.stringify(generatedWordToDetail(item)) },
+                            });
+                          }}
+                          added={addedScannedIds.has(item.id)}
+                          tint={tint}
+                          borderColor={borderColor}
+                          textSecondary={textSecondary}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
             </>
           )}
         </ScrollView>
@@ -851,6 +992,32 @@ const styles = StyleSheet.create({
     opacity: 0.85,
     marginBottom: 8,
   },
+  scanBadgeWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 16,
+  },
+  scanBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingLeft: 10,
+    paddingRight: 4,
+    gap: 6,
+  },
+  scanBadgeText: {
+    fontSize: 14,
+  },
+  scanBadgeAdd: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   topicInput: {
     borderWidth: 1,
     borderRadius: 12,
@@ -876,8 +1043,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
+  scanBtnLabelWrap: {
+    alignItems: "center",
+  },
   scanBtnText: {
     fontSize: 14,
+  },
+  scanBtnSubtext: {
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.9,
   },
   chips: {
     flexDirection: "row",
