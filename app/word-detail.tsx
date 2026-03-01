@@ -1,10 +1,10 @@
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useThemeColor } from "@/hooks/use-theme-color";
 import { speakWord } from "@/hooks/use-speak-word";
+import { useThemeColor } from "@/hooks/use-theme-color";
 import type { WordDetail } from "@/types/word-detail";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import React, { useMemo } from "react";
 import {
   Pressable,
@@ -13,12 +13,15 @@ import {
   View,
 } from "react-native";
 
-function parsePayload(params: Record<string, string | string[] | undefined>): WordDetail | null {
+function parsePayload(
+  params: Record<string, string | string[] | undefined>,
+): WordDetail | null {
   const raw = params.payload ?? params.data;
   if (typeof raw !== "string") return null;
   try {
     const parsed = JSON.parse(raw) as WordDetail;
-    if (parsed?.word && Array.isArray(parsed?.definitions) && parsed?.phonetics) return parsed;
+    if (parsed?.word && Array.isArray(parsed?.definitions) && parsed?.phonetics)
+      return parsed;
   } catch {
     // ignore
   }
@@ -26,31 +29,24 @@ function parsePayload(params: Record<string, string | string[] | undefined>): Wo
 }
 
 export default function WordDetailScreen() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ payload?: string; data?: string }>();
-  const detail = useMemo(() => parsePayload(params), [params.payload, params.data]);
+  const detail = useMemo(
+    () => parsePayload(params),
+    [params.payload, params.data],
+  );
 
   const tint = useThemeColor({}, "tint");
   const borderColor = useThemeColor({}, "border");
   const textSecondary = useThemeColor({}, "textSecondary");
   const cardBg = useThemeColor({}, "cardBackground");
 
-  const handleBack = () => router.back();
-
   if (!detail) {
     return (
       <ThemedView style={styles.container}>
-        <View style={[styles.header, { borderBottomColor: borderColor }]}>
-          <Pressable onPress={handleBack} hitSlop={12} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
-            <IconSymbol name="chevron.left" size={24} color={tint} />
-          </Pressable>
-          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-            Chi tiết từ
-          </ThemedText>
-        </View>
         <ThemedView style={styles.centered}>
           <ThemedText style={[styles.emptyHint, { color: textSecondary }]}>
-            Không có dữ liệu từ. Quay lại và mở từ từ danh sách hoặc kết quả tìm kiếm.
+            Không có dữ liệu từ. Quay lại và mở từ từ danh sách hoặc kết quả tìm
+            kiếm.
           </ThemedText>
         </ThemedView>
       </ThemedView>
@@ -61,29 +57,25 @@ export default function WordDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.header, { borderBottomColor: borderColor }]}>
-        <Pressable onPress={handleBack} hitSlop={12} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
-          <IconSymbol name="chevron.left" size={24} color={tint} />
-        </Pressable>
-        <ThemedText type="defaultSemiBold" style={styles.headerTitle} numberOfLines={1}>
-          {word}
-        </ThemedText>
-      </View>
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Word + level + US/UK speak (text-to-speech như màn generate) */}
-        <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
+        <ThemedView style={[styles.card, { backgroundColor: cardBg }]}>
           <View style={styles.wordRow}>
             <ThemedText type="title" style={styles.wordTitle}>
               {word}
             </ThemedText>
             {definitions[0]?.level ? (
-              <View style={[styles.levelBadge, { backgroundColor: tint + "22" }]}>
-                <ThemedText type="defaultSemiBold" style={[styles.levelBadgeText, { color: tint }]}>
+              <View
+                style={[styles.levelBadge, { backgroundColor: tint + "22" }]}
+              >
+                <ThemedText
+                  type="defaultSemiBold"
+                  style={[styles.levelBadgeText, { color: tint }]}
+                >
                   {definitions[0].level}
                 </ThemedText>
               </View>
@@ -92,17 +84,35 @@ export default function WordDetailScreen() {
           <View style={styles.speakRow}>
             <Pressable
               onPress={() => speakWord(word, "en-US")}
-              style={[styles.speakBtn, { borderColor, backgroundColor: tint + "18" }]}
+              style={[styles.speakBtn, { backgroundColor: tint + "18" }]}
             >
-              <ThemedText type="defaultSemiBold" style={[styles.speakBtnText, { color: tint }]}>
+              <IconSymbol
+                name="speaker.wave.2"
+                size={18}
+                color={tint}
+                style={styles.speakBtnIcon}
+              />
+              <ThemedText
+                type="defaultSemiBold"
+                style={[styles.speakBtnText, { color: tint }]}
+              >
                 US
               </ThemedText>
             </Pressable>
             <Pressable
               onPress={() => speakWord(word, "en-GB")}
-              style={[styles.speakBtn, { borderColor, backgroundColor: tint + "18" }]}
+              style={[styles.speakBtn, { backgroundColor: tint + "18" }]}
             >
-              <ThemedText type="defaultSemiBold" style={[styles.speakBtnText, { color: tint }]}>
+              <IconSymbol
+                name="speaker.wave.2"
+                size={18}
+                color={tint}
+                style={styles.speakBtnIcon}
+              />
+              <ThemedText
+                type="defaultSemiBold"
+                style={[styles.speakBtnText, { color: tint }]}
+              >
                 UK
               </ThemedText>
             </Pressable>
@@ -110,45 +120,79 @@ export default function WordDetailScreen() {
         </ThemedView>
 
         {/* Phonetics: uk_pronun, us_pronun, grammar */}
-        <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor }]}>
-          <ThemedText type="defaultSemiBold" style={[styles.sectionTitle, { color: textSecondary }]}>
+        <ThemedView style={[styles.card, { backgroundColor: cardBg }]}>
+          <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textSecondary }]}>
             Phiên âm
           </ThemedText>
           <View style={styles.phoneticsRow}>
             <View style={styles.phoneticItem}>
-              <ThemedText style={[styles.phoneticLabel, { color: textSecondary }]}>UK</ThemedText>
-              <ThemedText style={styles.phoneticValue}>{phonetics.uk_pronun || "—"}</ThemedText>
+              <ThemedText
+                style={[styles.phoneticLabel, { color: textSecondary }]}
+              >
+                UK
+              </ThemedText>
+              <ThemedText style={styles.phoneticValue}>
+                {phonetics.uk_pronun || "—"}
+              </ThemedText>
             </View>
-            <View style={[styles.phoneticDivider, { backgroundColor: borderColor }]} />
+            <View
+              style={[styles.phoneticDivider, { backgroundColor: borderColor }]}
+            />
             <View style={styles.phoneticItem}>
-              <ThemedText style={[styles.phoneticLabel, { color: textSecondary }]}>US</ThemedText>
-              <ThemedText style={styles.phoneticValue}>{phonetics.us_pronun || "—"}</ThemedText>
+              <ThemedText
+                style={[styles.phoneticLabel, { color: textSecondary }]}
+              >
+                US
+              </ThemedText>
+              <ThemedText style={styles.phoneticValue}>
+                {phonetics.us_pronun || "—"}
+              </ThemedText>
             </View>
           </View>
-          {phonetics.grammar && phonetics.grammar !== phonetics.uk_pronun && phonetics.grammar !== phonetics.us_pronun ? (
+          {phonetics.grammar &&
+          phonetics.grammar !== phonetics.uk_pronun &&
+          phonetics.grammar !== phonetics.us_pronun ? (
             <View style={[styles.grammarRow, { borderTopColor: borderColor }]}>
-              <ThemedText style={[styles.phoneticLabel, { color: textSecondary }]}>Grammar</ThemedText>
-              <ThemedText style={styles.phoneticValue}>{phonetics.grammar}</ThemedText>
+              <ThemedText
+                style={[styles.phoneticLabel, { color: textSecondary }]}
+              >
+                Grammar
+              </ThemedText>
+              <ThemedText style={styles.phoneticValue}>
+                {phonetics.grammar}
+              </ThemedText>
             </View>
           ) : null}
         </ThemedView>
 
         {/* Definitions */}
-        <ThemedText type="defaultSemiBold" style={[styles.sectionTitle, { color: textSecondary }]}>
+        <ThemedText type="subtitle" style={[styles.sectionTitle, { color: textSecondary }]}>
           Định nghĩa
         </ThemedText>
         {definitions.map((def, index) => (
           <ThemedView
             key={index}
-            style={[styles.card, styles.defCard, { backgroundColor: cardBg, borderColor }]}
+            style={[styles.card, styles.defCard, { backgroundColor: cardBg }]}
           >
             <View style={styles.defMeta}>
               {def.pos ? (
-                <ThemedText style={[styles.pos, { color: textSecondary }]}>{def.pos}</ThemedText>
+                <View style={[styles.posChip, { backgroundColor: tint + "12" }]}>
+                  <ThemedText style={[styles.posChipText, { color: textSecondary }]}>
+                    {def.pos}
+                  </ThemedText>
+                </View>
               ) : null}
               {def.level ? (
-                <View style={[styles.levelBadgeSmall, { backgroundColor: tint + "22" }]}>
-                  <ThemedText type="defaultSemiBold" style={[styles.levelBadgeTextSmall, { color: tint }]}>
+                <View
+                  style={[
+                    styles.levelBadgeSmall,
+                    { backgroundColor: tint + "22" },
+                  ]}
+                >
+                  <ThemedText
+                    type="defaultSemiBold"
+                    style={[styles.levelBadgeTextSmall, { color: tint }]}
+                  >
                     {def.level}
                   </ThemedText>
                 </View>
@@ -156,8 +200,12 @@ export default function WordDetailScreen() {
             </View>
             <ThemedText style={styles.definition}>{def.definition}</ThemedText>
             {def.examples && def.examples.length > 0 ? (
-              <View style={styles.examplesBlock}>
-                <ThemedText style={[styles.examplesLabel, { color: textSecondary }]}>Ví dụ:</ThemedText>
+              <View style={[styles.examplesBlock, { borderLeftColor: tint }]}>
+                <ThemedText
+                  style={[styles.examplesLabel, { color: textSecondary }]}
+                >
+                  Ví dụ:
+                </ThemedText>
                 {def.examples.map((ex, i) => (
                   <ThemedText key={i} style={styles.example}>
                     • {ex}
@@ -176,19 +224,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-  },
   centered: {
     flex: 1,
     justifyContent: "center",
@@ -203,20 +238,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 40,
   },
   card: {
     borderRadius: 12,
-    borderWidth: 1,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   wordRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
+    gap: 12,
+    marginBottom: 12,
   },
   wordTitle: {
     marginBottom: 0,
@@ -234,18 +268,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   speakBtn: {
-    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 10,
-    borderWidth: 1,
+  },
+  speakBtnIcon: {
+    marginRight: 6,
   },
   speakBtnText: {
     fontSize: 14,
   },
   sectionTitle: {
-    fontSize: 13,
-    marginBottom: 8,
-    marginLeft: 4,
+    fontSize: 15,
+    marginBottom: 12,
+    marginLeft: 0,
   },
   phoneticsRow: {
     flexDirection: "row",
@@ -268,20 +306,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   grammarRow: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
   },
   defCard: {
-    marginBottom: 10,
+    marginBottom: 16,
   },
   defMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  pos: {
+  posChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  posChipText: {
     fontSize: 13,
     fontStyle: "italic",
   },
@@ -299,17 +342,19 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   examplesBlock: {
-    marginTop: 10,
+    marginTop: 16,
+    paddingLeft: 12,
+    borderLeftWidth: 3,
   },
   examplesLabel: {
     fontSize: 13,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   example: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
     fontStyle: "italic",
     opacity: 0.9,
-    marginBottom: 2,
+    marginBottom: 4,
   },
 });

@@ -30,6 +30,7 @@ const MAPPING = {
   'camera': 'camera-alt',
   'camera.viewfinder': 'image',
   'pencil': 'edit',
+  'speaker.wave.2': 'volume-up',
 } as IconMapping;
 
 /**
