@@ -1,0 +1,13 @@
+---
+description: Khi tạo màn hình hoặc route mới, dùng async routes (expo-router)
+globs: app/**/*.tsx
+alwaysApply: false
+---
+
+# Expo Router – Async routes cho màn hình / route mới
+
+- Dự án đã bật **async routes** trong `app.json` (plugin expo-router với `asyncRoutes`).
+- Khi thêm **màn hình mới** hoặc **route mới** (file trong `app/`):
+  - Giữ nguyên cấu hình async routes; không tắt hoặc gộp route vào initial bundle nếu có thể tránh.
+  - Màn hình/route mới sẽ tự được bundle-split và load khi user navigate tới.
+- Không cần gọi API đặc biệt trong code route; expo-router xử lý lazy load theo file.

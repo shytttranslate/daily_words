@@ -3,6 +3,7 @@ import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useWords } from "@/context/words-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { speakWord } from "@/hooks/use-speak-word";
 import type { CEFRLevel, Word } from "@/types/word";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
@@ -33,6 +34,7 @@ type WordItemProps = {
 function WordItemInner({ word, isKnown, onToggleKnown }: WordItemProps) {
   const tint = useThemeColor({}, "tint");
   const iconColor = useThemeColor({}, "icon");
+  const borderColor = useThemeColor({}, "border");
   const wordId = word.id;
   const level = word.level ?? "A1";
 
@@ -61,6 +63,24 @@ function WordItemInner({ word, isKnown, onToggleKnown }: WordItemProps) {
             name={isKnown ? "checkmark.circle.fill" : "circle"}
             color={isKnown ? tint : iconColor}
           />
+        </Pressable>
+      </View>
+      <View style={styles.speakRow}>
+        <Pressable
+          onPress={() => speakWord(word.en, "en-US")}
+          style={[styles.speakBtn, { borderColor, backgroundColor: tint + "18" }]}
+        >
+          <ThemedText type="defaultSemiBold" style={[styles.speakBtnText, { color: tint }]}>
+            US
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          onPress={() => speakWord(word.en, "en-GB")}
+          style={[styles.speakBtn, { borderColor, backgroundColor: tint + "18" }]}
+        >
+          <ThemedText type="defaultSemiBold" style={[styles.speakBtnText, { color: tint }]}>
+            UK
+          </ThemedText>
         </Pressable>
       </View>
       <ThemedText style={styles.wordVi}>{word.vi}</ThemedText>
@@ -482,6 +502,20 @@ const styles = StyleSheet.create({
   levelBadgeText: {
     fontSize: 11,
     fontWeight: "600",
+  },
+  speakRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginBottom: 6,
+  },
+  speakBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  speakBtnText: {
+    fontSize: 12,
   },
   wordVi: {
     fontSize: 15,

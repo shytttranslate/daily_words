@@ -4,7 +4,9 @@ import { ThemedView } from "@/components/themed-view";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useWords } from "@/context/words-context";
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { speakWord } from "@/hooks/use-speak-word";
 import { generateWordsByTopic } from "@/services/generate-words";
+import { getSuggestions } from "@/services/vocabup-api";
 import { pickImageFromGallery, recognizeTextFromUri } from "@/services/ocr";
 import type { GeneratedWord } from "@/services/vocabup-api";
 import type { CEFRLevel } from "@/types/word";
@@ -27,7 +29,7 @@ type AddMode = "choice" | "ai" | "ocr" | "manual";
 
 function ResultWordCard({
   item,
-  onAdd,
+  onAdd, 
   added,
   tint,
   borderColor,
@@ -43,9 +45,29 @@ function ResultWordCard({
   return (
     <View style={[styles.resultCard, { borderColor }]}>
       <View style={styles.resultCardContent}>
-        <ThemedText type="defaultSemiBold" style={styles.resultEn}>
-          {item.word}
-        </ThemedText>
+        <View style={styles.resultWordRow}>
+          <ThemedText type="defaultSemiBold" style={styles.resultEn}>
+            {item.word}
+          </ThemedText>
+          <View style={styles.speakBtnRow}>
+            <Pressable
+              onPress={() => speakWord(item.word, "en-US")}
+              style={[styles.speakBtn, { borderColor, backgroundColor: tint + "18" }]}
+            >
+              <ThemedText type="defaultSemiBold" style={[styles.speakBtnText, { color: tint }]}>
+                US
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => speakWord(item.word, "en-GB")}
+              style={[styles.speakBtn, { borderColor, backgroundColor: tint + "18" }]}
+            >
+              <ThemedText type="defaultSemiBold" style={[styles.speakBtnText, { color: tint }]}>
+                UK
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
         <ThemedText style={[styles.resultIpa, { color: textSecondary }]}>
           {item.ipa ?? "—"}
         </ThemedText>
@@ -106,6 +128,8 @@ export default function AddWordModalScreen() {
   const [results, setResults] = useState<GeneratedWord[]>([]);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>(SUGGESTIONS);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   // OCR
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -189,6 +213,15 @@ export default function AddWordModalScreen() {
     try {
       const words = await generateWordsByTopic(trimmed);
       setResults(words);
+      setSuggestionsLoading(true);
+      try {
+        const next = await getSuggestions({ userInput: trimmed });
+        if (next.length > 0) setSuggestions(next);
+      } catch {
+        // keep current suggestions on error
+      } finally {
+        setSuggestionsLoading(false);
+      }
     } catch (e) {
       setResults([]);
       const msg = e instanceof Error ? e.message : "Không thể tạo từ vựng.";
@@ -522,7 +555,10 @@ export default function AddWordModalScreen() {
             Gợi ý nhanh
           </ThemedText>
           <View style={styles.chips}>
-            {SUGGESTIONS.map((label) => (
+            {suggestionsLoading ? (
+              <ActivityIndicator size="small" color={tint} style={{ marginRight: 8 }} />
+            ) : null}
+            {suggestions.map((label) => (
               <Pressable
                 key={label}
                 onPress={() => setTopic(label)}
@@ -866,9 +902,30 @@ const styles = StyleSheet.create({
   resultCardContent: {
     flex: 1,
   },
+  resultWordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 4,
+  },
+  speakBtnRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  speakBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  speakBtnText: {
+    fontSize: 12,
+  },
   resultEn: {
     fontSize: 16,
-    marginBottom: 2,
+    marginBottom: 0,
   },
   resultIpa: {
     fontSize: 13,

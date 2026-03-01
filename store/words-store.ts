@@ -1,13 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import type { Word } from '@/types/word';
-import { SEED_WORDS } from '@/data/seed-words';
-
-const STORAGE_KEYS = {
-  WORDS: '@daily_words:words',
-  KNOWN_IDS: '@daily_words:knownIds',
-  QUIZ_RESULTS: '@daily_words:quizResults',
-};
+import { STORAGE_KEYS } from './storage-keys';
 
 export function useWordsStore() {
   const [words, setWords] = useState<Word[]>([]);
@@ -24,6 +18,7 @@ export function useWordsStore() {
         const parsed = JSON.parse(wordsJson) as Word[];
         setWords(parsed);
       } else {
+        const { SEED_WORDS } = await import('@/data/seed-words');
         setWords(SEED_WORDS);
         await AsyncStorage.setItem(STORAGE_KEYS.WORDS, JSON.stringify(SEED_WORDS));
       }
@@ -33,6 +28,7 @@ export function useWordsStore() {
         setKnownIds(new Set());
       }
     } catch (e) {
+      const { SEED_WORDS } = await import('@/data/seed-words');
       setWords(SEED_WORDS);
       setKnownIds(new Set());
     } finally {
@@ -74,5 +70,3 @@ export function useWordsStore() {
 
   return { words, knownIds, loaded, load, toggleKnown, addWord, isKnown };
 }
-
-export { STORAGE_KEYS };

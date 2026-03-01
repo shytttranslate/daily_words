@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import type { QuizResult } from '@/types/word';
-import { STORAGE_KEYS } from './words-store';
+import { STORAGE_KEYS } from './storage-keys';
 
 export function useQuizStore() {
   const [results, setResults] = useState<QuizResult[]>([]);

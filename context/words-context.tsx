@@ -1,8 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Word } from '@/types/word';
-import { SEED_WORDS } from '@/data/seed-words';
-import { STORAGE_KEYS } from '@/store/words-store';
+import { STORAGE_KEYS } from '@/store/storage-keys';
 
 type WordsContextType = {
   words: Word[];
@@ -30,6 +29,7 @@ export function WordsProvider({ children }: { children: React.ReactNode }) {
       if (wordsJson) {
         setWords(JSON.parse(wordsJson) as Word[]);
       } else {
+        const { SEED_WORDS } = await import('@/data/seed-words');
         setWords(SEED_WORDS);
         await AsyncStorage.setItem(STORAGE_KEYS.WORDS, JSON.stringify(SEED_WORDS));
       }
@@ -39,6 +39,7 @@ export function WordsProvider({ children }: { children: React.ReactNode }) {
         setKnownIds(new Set());
       }
     } catch {
+      const { SEED_WORDS } = await import('@/data/seed-words');
       setWords(SEED_WORDS);
       setKnownIds(new Set());
     } finally {
